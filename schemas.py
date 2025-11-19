@@ -1,48 +1,69 @@
 """
-Database Schemas
+Database Schemas for Newtonbotics Lab Store
 
-Define your MongoDB collection schemas here using Pydantic models.
-These schemas are used for data validation in your application.
-
-Each Pydantic model represents a collection in your database.
-Model name is converted to lowercase for the collection name:
-- User -> "user" collection
-- Product -> "product" collection
-- BlogPost -> "blogs" collection
+Each Pydantic model represents a MongoDB collection. The collection name is the lowercase
+of the class name (e.g., Product -> "product").
 """
+from typing import List, Optional, Literal
+from pydantic import BaseModel, Field, EmailStr
 
-from pydantic import BaseModel, Field
-from typing import Optional
 
-# Example schemas (replace with your own):
+class ProductSpec(BaseModel):
+    dimensions_mm: Optional[str] = Field(None, description="L x W x H in millimeters")
+    weight_g: Optional[float] = Field(None, description="Weight in grams")
+    materials: Optional[List[str]] = Field(default=None, description="Materials used")
+    voltage_range_v: Optional[str] = Field(None, description="Voltage range, e.g. 5-12V")
+    current_max_a: Optional[float] = Field(None, description="Max current in amps")
+    tolerance_mm: Optional[float] = Field(None, description="Manufacturing tolerance in mm")
+    mounting_pattern: Optional[str] = Field(None, description="Hole pattern or standard")
+    compatibility: Optional[List[str]] = Field(default=None, description="Compatible systems/components")
 
-class User(BaseModel):
-    """
-    Users collection schema
-    Collection name: "user" (lowercase of class name)
-    """
-    name: str = Field(..., description="Full name")
-    email: str = Field(..., description="Email address")
-    address: str = Field(..., description="Address")
-    age: Optional[int] = Field(None, ge=0, le=120, description="Age in years")
-    is_active: bool = Field(True, description="Whether user is active")
 
 class Product(BaseModel):
     """
     Products collection schema
-    Collection name: "product" (lowercase of class name)
+    Collection name: "product"
     """
     title: str = Field(..., description="Product title")
-    description: Optional[str] = Field(None, description="Product description")
-    price: float = Field(..., ge=0, description="Price in dollars")
-    category: str = Field(..., description="Product category")
-    in_stock: bool = Field(True, description="Whether product is in stock")
+    slug: str = Field(..., description="URL-safe identifier")
+    description: str = Field(..., description="Product description")
+    category: Literal["3d-printed", "laser-engraved", "electronics"]
+    price: float = Field(..., ge=0, description="Price in USD")
+    in_stock: bool = Field(True, description="Availability flag")
+    images: List[str] = Field(default_factory=list, description="Image paths under /public")
+    tags: List[str] = Field(default_factory=list, description="Searchable tags")
+    specs: Optional[ProductSpec] = None
 
-# Add your own schemas here:
-# --------------------------------------------------
 
-# Note: The Flames database viewer will automatically:
-# 1. Read these schemas from GET /schema endpoint
-# 2. Use them for document validation when creating/editing
-# 3. Handle all database operations (CRUD) directly
-# 4. You don't need to create any database endpoints!
+class OrderItem(BaseModel):
+    product_id: str
+    title: str
+    price: float
+    quantity: int = Field(..., ge=1)
+
+
+class CustomerInfo(BaseModel):
+    full_name: str
+    email: EmailStr
+    phone: str
+    address_line1: str
+    address_line2: Optional[str] = None
+    city: str
+    state: str
+    postal_code: str
+    country: str
+
+
+class Order(BaseModel):
+    """
+    Orders collection schema (Pay on Delivery)
+    Collection name: "order"
+    """
+    items: List[OrderItem]
+    customer: CustomerInfo
+    notes: Optional[str] = None
+    subtotal: float
+    shipping: float
+    total: float
+    payment_method: Literal["cod"] = "cod"
+    status: Literal["received", "processing", "shipped", "delivered", "cancelled"] = "received"
